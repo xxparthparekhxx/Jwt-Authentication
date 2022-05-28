@@ -1,15 +1,31 @@
-
+import "reflect-metadata";
 import express from "express"
+import { ApolloServer } from "apollo-server-express"
+import { buildSchema } from "type-graphql";
+import { UserResolver } from "./UserResolver";
 
 
 (async () => {
+    //declare express app
     const app = express();
 
+    //Graphql config 
+    const apolloServer = new ApolloServer({
+        schema: await buildSchema({
+            resolvers: [UserResolver]
+        })
+    });
+
+    await apolloServer.start()
+    //applying the middleware to the express app 
+    apolloServer.applyMiddleware({ app });
 
 
-    app.get("/", (_req, _res) => _res.send("Hello World!"));
+    //routes 
+    app.get("/", (_req, res) => res.send("Hello World!"));
 
 
+    // Start the server
     app.listen(
         4000,
         () => console.log("<<<<< Server is running on port 4000 >>>>>")
