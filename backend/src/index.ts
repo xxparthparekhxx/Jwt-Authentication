@@ -3,19 +3,27 @@ import express from "express"
 import { ApolloServer } from "apollo-server-express"
 import { buildSchema } from "type-graphql";
 import { UserResolver } from "./UserResolver";
+import { AppDataSource } from "./data-source";
+import 'dotenv/config'
 
 
 (async () => {
     //declare express app
     const app = express();
 
+
+
+    await AppDataSource.initialize();
+
     //Graphql config 
     const apolloServer = new ApolloServer({
         schema: await buildSchema({
             resolvers: [UserResolver]
-        })
+        }),
+        context: ({ req, res }) => ({ req, res })
     });
 
+    //start apollo server
     await apolloServer.start()
     //applying the middleware to the express app 
     apolloServer.applyMiddleware({ app });
@@ -24,6 +32,10 @@ import { UserResolver } from "./UserResolver";
     //routes 
     app.get("/", (_req, res) => res.send("Hello World!"));
 
+    app.post("/refresh_token", (_req, _res) => {
+        console.log(_req.headers)
+        return _res.send()
+    })
 
     // Start the server
     app.listen(
