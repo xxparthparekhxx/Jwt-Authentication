@@ -1,9 +1,11 @@
-import { Query, Resolver, Mutation, Arg, ObjectType, Field, Ctx, UseMiddleware } from "type-graphql";
+import { Query, Resolver, Mutation, Arg, ObjectType, Field, Ctx, UseMiddleware, Int } from "type-graphql";
 import { User } from "./entity/User";
 import { compare, hash } from "bcryptjs";
 import { MyContext } from "./MyContext";
 import { createAccessToken, createRefreshToken } from "./auth";
 import { isAuth } from "./isAuth";
+import { sendRefreshToken } from "./sendRefreshToken";
+import { AppDataSource } from "./data-source";
 @ObjectType()
 class LoginResponse {
     @Field()
@@ -35,6 +37,15 @@ export class UserResolver {
     }
 
     @Mutation(() => Boolean)
+    async revokeRefreshTokenForUser(
+        @Arg('userId', () => Int) userId: number
+    ) {
+        AppDataSource.getRepository(User).increment({ id: userId }, "tokenVersion", 1)
+        return true
+    }
+
+
+    @Mutation(() => Boolean)
     async deleteUser(
         @Arg("id") id: number
     ) {
@@ -62,7 +73,7 @@ export class UserResolver {
 
 
         //Successfully login
-        res.cookie("jid", createRefreshToken(user))
+        sendRefreshToken(res, createRefreshToken(user))
 
         return {
             accessToken: createAccessToken(user)

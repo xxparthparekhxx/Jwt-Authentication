@@ -5,12 +5,17 @@ import { buildSchema } from "type-graphql";
 import { UserResolver } from "./UserResolver";
 import { AppDataSource } from "./data-source";
 import 'dotenv/config'
+import cookieParser from "cookie-parser";
+import { verify } from "jsonwebtoken";
+import { User } from "./entity/User";
+import { createAccessToken, createRefreshToken } from "./auth";
+import { sendRefreshToken } from "./sendRefreshToken";
 
 
 (async () => {
     //declare express app
     const app = express();
-
+    app.use(cookieParser())
 
 
     await AppDataSource.initialize();
@@ -32,9 +37,36 @@ import 'dotenv/config'
     //routes 
     app.get("/", (_req, res) => res.send("Hello World!"));
 
-    app.post("/refresh_token", (_req, _res) => {
-        console.log(_req.headers)
-        return _res.send()
+    app.post("/refresh_token", async (_req, _res) => {
+        const token = _req.cookies.jid
+        if (!token) {
+            _res.send({ ok: false, accessToken: "" })
+        }
+        let payload: any = null;
+        try {
+            payload = verify(token, process.env.REFRESH_TOKEN_SECRET!)
+
+        } catch (err) {
+            console.log(err)
+            return _res.send({ ok: false, accessToken: "" })
+
+        }
+        //token is valid and we can send back the access token 
+        const user = await User.findOne({ where: { id: payload.userId } })
+
+        if (!user) {
+            return _res.send({ ok: false, accessToken: "" })
+        }
+        if (user.tokenVersion !== payload.tokenVersion) {
+            console.log("Revoked")
+            return _res.send({ ok: false, accessToken: "" })
+
+        }
+
+        console.log(user?.email)
+        sendRefreshToken(_res, createRefreshToken(user))
+
+        return _res.send({ ok: true, accessToken: createAccessToken(user) })
     })
 
     // Start the server
@@ -42,8 +74,6 @@ import 'dotenv/config'
         4000,
         () => console.log("<<<<< Server is running on port 4000 >>>>>")
     )
-
-
 
 })()
 
